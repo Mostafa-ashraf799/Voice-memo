@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Voice Memo · مسجّل الصوت</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet"/>
+<style>
+/* ─── Reset & Base ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--surface:#13131a;--card:#252525;
+  --purple:rgb(186,66,255);--cyan:rgb(0,225,255);
+  --fire1:#ffbf48;--fire2:#be4a1d;
+  --text:#e0e0e0;--muted:#555;--border:#222;
+}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Space Mono',monospace;min-height:100vh;
+  overflow-x:hidden;
+  background-image:radial-gradient(ellipse at 50% 0%,#1a0a2e 0%,transparent 60%);
+}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:#111}
+::-webkit-scrollbar-thumb{background:#ba42ff55;border-radius:2px}
+
+/* ─── Pages ─── */
+.page{display:none;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
+.page.active{display:flex}
+
+/* ─── Typography ─── */
+.title{
+  font-family:'Orbitron',monospace;font-size:1.9rem;font-weight:900;
+  letter-spacing:4px;text-shadow:0 0 20px #ba42ff66;margin-bottom:6px;text-align:center
+}
+.sub{font-size:.7rem;color:var(--muted);letter-spacing:3px;margin-bottom:44px;text-align:center}
+.hint{font-size:.65rem;color:#444;letter-spacing:2px;margin-top:18px;text-align:center}
+
+/* ─── Idle Spinner ─── */
+@keyframes spinning82341{to{transform:rotate(360deg)}}
+.idle-spinner{
+  background-image:linear-gradient(rgb(186,66,255) 35%,rgb(0,225,255));
+  width:180px;height:180px;border-radius:50%;filter:blur(1px);
+  box-shadow:0 -8px 30px 0 rgb(186,66,255),0 8px 30px 0 rgb(0,225,255);
+  animation:spinning82341 1.7s linear infinite;
+  cursor:pointer;user-select:none;-webkit-user-select:none;
+  transition:transform .15s;position:relative
+}
+.idle-spinner:active{transform:scale(.94)}
+.idle-inner{
+  background:#242424;width:180px;height:180px;border-radius:50%;filter:blur(10px)
+}
+
+/* ─── Fire Loader ─── */
+@keyframes rotation{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes roundness{0%,60%,100%{filter:contrast(15)}20%,40%{filter:contrast(3)}}
+@keyframes colorize{
+  0%{filter:hue-rotate(0deg)}20%{filter:hue-rotate(-30deg)}
+  40%{filter:hue-rotate(-60deg)}60%{filter:hue-rotate(-90deg)}
+  80%{filter:hue-rotate(-45deg)}100%{filter:hue-rotate(0deg)}
+}
+.fire-loader{
+  --ca:#ffbf48;--cb:#be4a1d;--cc:#ffbf4780;--cd:#bf4a1d80;--ce:#ffbf4740;--t:2s;
+  position:relative;border-radius:50%;
+  box-shadow:0 0 35px 0 var(--cc),0 25px 60px 0 var(--cd);
+  animation:colorize calc(var(--t)*3) ease-in-out infinite;
+  width:160px;height:160px
+}
+.fire-loader::before{
+  content:"";position:absolute;top:0;left:0;width:160px;height:160px;border-radius:50%;
+  border-top:solid 1px var(--ca);border-bottom:solid 1px var(--cb);
+  background:linear-gradient(180deg,var(--ce),var(--cd));
+  box-shadow:inset 0 10px 10px 0 var(--cc),inset 0 -10px 10px 0 var(--cd)
+}
+.fire-loader svg{position:absolute}
+.fire-loader svg #clipping{filter:contrast(15);animation:roundness calc(var(--t)/2) linear infinite}
+.fire-loader svg #clipping polygon{filter:blur(7px)}
+.fire-loader svg #clipping polygon:nth-child(1){transform-origin:75% 25%;transform:rotate(90deg)}
+.fire-loader svg #clipping polygon:nth-child(2){transform-origin:50% 50%;animation:rotation var(--t) linear infinite reverse}
+.fire-loader svg #clipping polygon:nth-child(3){transform-origin:50% 60%;animation:rotation var(--t) linear infinite;animation-delay:calc(var(--t)/-3)}
+.fire-loader svg #clipping polygon:nth-child(4){transform-origin:40% 40%;animation:rotation var(--t) linear infinite reverse}
+.fire-loader svg #clipping polygon:nth-child(5){transform-origin:40% 40%;animation:rotation var(--t) linear infinite reverse;animation-delay:calc(var(--t)/-2)}
+.fire-loader svg #clipping polygon:nth-child(6){transform-origin:60% 40%;animation:rotation var(--t) linear infinite}
+.fire-loader svg #clipping polygon:nth-child(7){transform-origin:60% 40%;animation:rotation var(--t) linear infinite;animation-delay:calc(var(--t)/-1.5)}
+.fire-box{
+  width:160px;height:160px;
+  background:linear-gradient(180deg,#ffbf48 30%,#be4a1d 70%);
+  mask:url(#clipping);-webkit-mask:url(#clipping)
+}
+.loader-wrap{width:180px;height:180px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;-webkit-user-select:none}
+
+/* ─── Wave Bars ─── */
+@keyframes waveAnim{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1.3)}}
+.wave-bars{display:flex;align-items:center;gap:6px;margin:12px 0}
+.wave-bar{
+  width:5px;height:44px;border-radius:3px;
+  background:linear-gradient(to top,var(--purple),var(--cyan));
+  animation:waveAnim .5s ease-in-out infinite
+}
+.wave-bar:nth-child(1){animation-delay:.0s}.wave-bar:nth-child(2){animation-delay:.07s}
+.wave-bar:nth-child(3){animation-delay:.14s}.wave-bar:nth-child(4){animation-delay:.21s}
+.wave-bar:nth-child(5){animation-delay:.28s}.wave-bar:nth-child(6){animation-delay:.35s}
+.wave-bar:nth-child(7){animation-delay:.42s}
+
+/* ─── Timer ─── */
+.timer{
+  font-family:'Orbitron',monospace;font-size:2.8rem;font-weight:700;
+  color:var(--fire1);text-shadow:0 0 16px #ffbf4888;
+  margin:10px 0;letter-spacing:6px
+}
+
+/* ─── Cassette Button (small) ─── */
+@keyframes runWheel{100%{transform:rotate(360deg)}}
+.cassette-section{margin-top:48px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.cassette-label{font-size:.55rem;color:#3a3a3a;letter-spacing:3px;font-family:'Orbitron',monospace}
+.cassette-btn-simple{
+  cursor:pointer;background:#1a1a22;border:1px solid #2a2a35;border-radius:12px;
+  padding:14px 28px;display:flex;align-items:center;gap:12px;
+  transition:border-color .2s,background .2s,transform .2s,box-shadow .2s;
+  text-decoration:none;
+}
+.cassette-btn-simple:hover{
+  border-color:#ba42ff55;background:#1e1e2e;transform:translateY(-2px);
+  box-shadow:0 8px 24px #ba42ff22
+}
+.cassette-btn-simple:active{transform:translateY(0)}
+.mini-cas{
+  width:54px;height:34px;background:#2a2a2a;border-radius:5px;
+  position:relative;overflow:hidden;flex-shrink:0;
+  box-shadow:inset 0 1px 3px rgba(0,0,0,.5)
+}
+.mini-cas::before{
+  content:'';position:absolute;top:4px;left:4px;right:4px;height:1px;background:#444
+}
+.mini-cas-windows{
+  position:absolute;top:9px;left:0;right:0;
+  display:flex;justify-content:center;gap:6px;align-items:center
+}
+.mini-wheel-sm{
+  width:12px;height:12px;border-radius:50%;
+  border:1.5px dashed #888;box-shadow:0 0 0 2px #666;
+  animation:runWheel 2s linear infinite
+}
+.mini-cas-tape{width:10px;height:8px;background:#1a1a1a;border-radius:1px}
+.mini-cas-bottom{
+  position:absolute;bottom:0;left:0;right:0;height:8px;
+  background:rgb(241,90,37);border-radius:0 0 4px 4px;
+  display:flex;align-items:center;justify-content:center
+}
+.mini-cas-bottom span{font-size:4px;color:#fff;letter-spacing:1px;font-family:monospace}
+.cas-btn-text{display:flex;flex-direction:column;gap:2px}
+.cas-btn-label{font-family:'Orbitron',monospace;font-size:.6rem;color:#ccc;letter-spacing:2px}
+.cas-btn-sub{font-size:.5rem;color:#444;letter-spacing:1px}
+.rec-count{font-size:.5rem;color:#2a2a2a;letter-spacing:2px;font-family:'Orbitron',monospace}
+
+/* ─── Recordings Page ─── */
+@keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.back-btn{
+  align-self:flex-start;
+  background:none;border:1px solid #333;color:#aaa;
+  font-family:'Space Mono',monospace;font-size:.7rem;
+  padding:10px 24px;border-radius:24px;cursor:pointer;
+  letter-spacing:2px;margin-bottom:28px;transition:border-color .2s,color .2s,background .2s;
+  display:flex;align-items:center;gap:8px
+}
+.back-btn:hover{border-color:var(--purple);color:var(--purple);background:#1a0a2e55}
+
+/* Mini cassette for playback */
+.mini-cassette{
+  width:220px;height:130px;background:var(--card);border-radius:8px;
+  box-shadow:rgba(0,0,0,.4) 0 2px 4px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;margin-bottom:16px;
+  border:1px solid #333;transition:border .3s;
+  animation:fadeIn .4s ease both
+}
+.mini-cassette.playing{border-color:#ffbf4866}
+.mini-roll-row{display:flex;width:160px;height:40px;background:rgb(242,188,0);border-radius:4px;align-items:center;justify-content:center;gap:8px}
+.mini-wheel{width:28px;height:28px;border-radius:50%;border:2px dashed #fff;box-shadow:0 0 0 3px #fff;animation:runWheel 1.5s linear infinite}
+.mini-tape{width:40px;height:16px;background:#252525}
+.mini-label{width:160px;height:14px;background:rgb(241,90,37);border-radius:3px;display:flex;align-items:center;justify-content:center;margin-top:6px}
+.mini-label span{font-size:.42em;font-family:'Orbitron',monospace;color:#fff;letter-spacing:2px}
+.paused .mini-wheel{animation-play-state:paused}
+
+/* Recording list */
+.rec-list{width:100%;max-width:500px;display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.rec-item{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;display:flex;align-items:center;gap:12px;
+  cursor:pointer;transition:border .2s,background .2s;animation:slideIn .4s ease both
+}
+.rec-item:hover{background:#1a1a25;border-color:#ba42ff66}
+.rec-item.active{border-color:var(--purple)}
+.play-btn{
+  width:36px;height:36px;border-radius:50%;border:none;
+  background:#222;color:#fff;font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  transition:background .2s,box-shadow .2s
+}
+.play-btn.active{background:linear-gradient(135deg,#ba42ff,#00e1ff);box-shadow:0 0 12px #ba42ff66}
+.rec-info{flex:1;min-width:0}
+.rec-name{
+  background:transparent;border:none;outline:none;
+  font-family:'Space Mono',monospace;font-size:.75rem;color:var(--text);
+  width:100%;border-bottom:1px solid transparent;padding:2px 0;
+  transition:border-color .2s
+}
+.rec-name:focus{border-bottom-color:#ba42ff66}
+.rec-meta{font-size:.52rem;color:var(--muted);font-family:'Orbitron',monospace;margin-top:4px}
+.del-btn{background:none;border:none;color:#333;cursor:pointer;font-size:14px;padding:4px;transition:color .2s;flex-shrink:0}
+.del-btn:hover{color:#ff4444}
+.empty-note{color:#2a2a2a;font-size:.7rem;text-align:center;margin-top:48px;letter-spacing:2px}
+
+/* ─── Responsive ─── */
+@media(max-width:360px){
+  .cassette-card{width:260px;height:174px;transform:scale(.87);transform-origin:center}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ HOME PAGE ══════════════ -->
+<section class="page active" id="page-home">
+
+  <h1 class="title">VOICE MEMO</h1>
+  <p class="sub">◆ سجّل لحظتك ◆</p>
+
+  <!-- Loader button -->
+  <div class="loader-wrap" id="loader-btn">
+    <!-- Idle state -->
+    <div class="idle-spinner" id="idle-spinner">
+      <div class="idle-inner"></div>
+    </div>
+    <!-- Recording state (hidden by default) -->
+    <div class="fire-loader" id="fire-loader" style="display:none">
+      <svg width="160" height="160" viewBox="0 0 100 100">
+        <defs>
+          <mask id="clipping">
+            <polygon points="0,0 100,0 100,100 0,100" fill="black"/>
+            <polygon points="25,25 75,25 50,75" fill="white"/>
+            <polygon points="50,25 75,75 25,75" fill="white"/>
+            <polygon points="35,35 65,35 50,65" fill="white"/>
+            <polygon points="35,35 65,35 50,65" fill="white"/>
+            <polygon points="35,35 65,35 50,65" fill="white"/>
+            <polygon points="35,35 65,35 50,65" fill="white"/>
+          </mask>
+        </defs>
+      </svg>
+      <div class="fire-box"></div>
+    </div>
+  </div>
+
+  <!-- Wave + Timer (hidden by default) -->
+  <div class="wave-bars" id="wave-bars" style="display:none">
+    <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+    <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+    <div class="wave-bar"></div>
+  </div>
+  <div class="timer" id="timer" style="display:none">00:00</div>
+
+  <p class="hint" id="main-hint">اضغط مطوّلاً للتسجيل</p>
+
+  <!-- Cassette → Recordings (small button) -->
+  <div class="cassette-section">
+    <span class="cassette-label">RECORDINGS</span>
+    <div class="cassette-btn-simple" id="cassette-btn" title="التسجيلات">
+      <div class="mini-cas">
+        <div class="mini-cas-windows">
+          <div class="mini-wheel-sm"></div>
+          <div class="mini-cas-tape"></div>
+          <div class="mini-wheel-sm"></div>
+        </div>
+        <div class="mini-cas-bottom"><span>TAPE</span></div>
+      </div>
+      <div class="cas-btn-text">
+        <span class="cas-btn-label">تسجيلاتي</span>
+        <span class="cas-btn-sub" id="rec-count">0 تسجيل محفوظ</span>
+      </div>
+      <span style="color:#333;font-size:12px">›</span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ RECORDINGS PAGE ══════════════ -->
+<section class="page" id="page-recordings">
+  <button class="back-btn" id="back-btn">← رجوع</button>
+  <h1 class="title">RECORDINGS</h1>
+  <p class="sub">◆ تسجيلاتك ◆</p>
+
+  <!-- Playback cassette (shown when playing) -->
+  <div class="mini-cassette paused" id="mini-cassette" style="display:none">
+    <div class="mini-roll-row">
+      <div class="mini-wheel"></div>
+      <div class="mini-tape"></div>
+      <div class="mini-wheel"></div>
+    </div>
+    <div class="mini-label"><span>NOW PLAYING</span></div>
+  </div>
+
+  <div class="rec-list" id="rec-list">
+    <p class="empty-note" id="empty-note">لا توجد تسجيلات بعد</p>
+  </div>
+</section>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let recordings = [];
+let mediaRecorder = null;
+let audioChunks = [];
+let timerInterval = null;
+let elapsedSecs = 0;
+let isRecording = false;
+let currentAudio = null;
+let currentPlayId = null;
+
+// ─── DOM Refs ─────────────────────────────────────────────────────────────────
+const pageHome = document.getElementById('page-home');
+const pageRec  = document.getElementById('page-recordings');
+const loaderBtn   = document.getElementById('loader-btn');
+const idleSpinner = document.getElementById('idle-spinner');
+const fireLoader  = document.getElementById('fire-loader');
+const waveBars    = document.getElementById('wave-bars');
+const timerEl     = document.getElementById('timer');
+const mainHint    = document.getElementById('main-hint');
+const recCount    = document.getElementById('rec-count');
+const recList     = document.getElementById('rec-list');
+const emptyNote   = document.getElementById('empty-note');
+const cassetteBtn = document.getElementById('cassette-btn');
+const backBtn     = document.getElementById('back-btn');
+const miniCassette= document.getElementById('mini-cassette');
+
+// ─── Storage ──────────────────────────────────────────────────────────────────
+function loadRecordings(){
+  try{
+    const raw = localStorage.getItem('voiceRecordings');
+    const arr = raw ? JSON.parse(raw) : [];
+    // rebuild blob URLs from base64
+    recordings = arr.map(r=>({...r}));
+  }catch(e){ recordings=[]; }
+}
+function saveRecordings(){
+  try{ localStorage.setItem('voiceRecordings', JSON.stringify(recordings)); }catch(e){}
+}
+
+// ─── Pages ────────────────────────────────────────────────────────────────────
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+}
+cassetteBtn.addEventListener('click',()=>{ renderRecList(); showPage('recordings'); });
+backBtn.addEventListener('click',()=>{ stopCurrentAudio(); showPage('home'); });
+
+// ─── Hold to Record ────────────────────────────────────────────────────────────
+let pendingStream = null;
+let holdTimeout   = null;
+
+async function startHold(e){
+  if(isRecording) return;
+
+  // Visual feedback immediately
+  idleSpinner.style.transform  = 'scale(0.88)';
+  idleSpinner.style.transition = 'transform 0.7s ease';
+
+  // *** Ask for mic RIGHT NOW (inside the user-gesture event) ***
+  try{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      alert('⚠️ المتصفح لا يدعم التسجيل الصوتي.\nتأكد من استخدام Chrome أو Firefox وفتح الملف عبر HTTPS أو localhost.');
+      resetSpinner(); return;
+    }
+    pendingStream = await navigator.mediaDevices.getUserMedia({audio:true});
+  } catch(err){
+    resetSpinner();
+    if(err.name==='NotAllowedError'||err.name==='PermissionDeniedError')
+      alert('⚠️ تم رفض إذن الميكروفون.\nاذهب لإعدادات المتصفح وامنح الإذن.');
+    else if(err.name==='NotFoundError')
+      alert('⚠️ لم يُعثر على ميكروفون متصل.');
+    else
+      alert('⚠️ خطأ في الميكروفون: '+err.message);
+    return;
+  }
+
+  // If user holds long enough → actually start recording
+  holdTimeout = setTimeout(()=>{ startRecording(pendingStream); pendingStream=null; }, 700);
+}
+
+function endHold(e){
+  clearTimeout(holdTimeout);
+  resetSpinner();
+  // User released before threshold — discard the stream
+  if(pendingStream){ pendingStream.getTracks().forEach(t=>t.stop()); pendingStream=null; }
+  if(isRecording) stopRecording();
+}
+
+function resetSpinner(){
+  idleSpinner.style.transform  = '';
+  idleSpinner.style.transition = 'transform 0.2s ease';
+}
+
+loaderBtn.addEventListener('mousedown',  startHold);
+loaderBtn.addEventListener('mouseup',    endHold);
+loaderBtn.addEventListener('mouseleave', endHold);
+loaderBtn.addEventListener('touchstart', e=>{ e.preventDefault(); startHold(e);  }, {passive:false});
+loaderBtn.addEventListener('touchend',   e=>{ e.preventDefault(); endHold(e);    }, {passive:false});
+
+// ─── Recording ────────────────────────────────────────────────────────────────
+function startRecording(stream){
+  mediaRecorder = new MediaRecorder(stream);
+  audioChunks   = [];
+
+  mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+  mediaRecorder.onstop = ()=>{
+    const blob   = new Blob(audioChunks, {type:'audio/webm'});
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const rec = {
+        id: Date.now(),
+        name: 'تسجيل ' + formatDate(Date.now()),
+        ts: Date.now(),
+        duration: elapsedSecs,
+        b64: reader.result
+      };
+      recordings.unshift(rec);
+      saveRecordings();
+      updateCount();
+    };
+    reader.readAsDataURL(blob);
+    stream.getTracks().forEach(t=>t.stop());
+  };
+
+  mediaRecorder.start();
+  isRecording  = true;
+  elapsedSecs  = 0;
+
+  // UI → show fire loader
+  idleSpinner.style.display = 'none';
+  fireLoader.style.display  = 'block';
+  waveBars.style.display    = 'flex';
+  timerEl.style.display     = 'block';
+  mainHint.textContent      = '• يُسجَّل الآن — ارفع إصبعك للإيقاف •';
+  timerEl.textContent       = '00:00';
+
+  timerInterval = setInterval(()=>{
+    elapsedSecs++;
+    timerEl.textContent = fmtTime(elapsedSecs);
+  }, 1000);
+}
+function stopRecording(){
+  if(mediaRecorder && mediaRecorder.state!=='inactive') mediaRecorder.stop();
+  clearInterval(timerInterval);
+  isRecording = false;
+  // UI
+  idleSpinner.style.display='block';
+  fireLoader.style.display='none';
+  waveBars.style.display='none';
+  timerEl.style.display='none';
+  mainHint.textContent='اضغط مطوّلاً للتسجيل';
+}
+
+// ─── Playback ─────────────────────────────────────────────────────────────────
+function stopCurrentAudio(){
+  if(currentAudio){ currentAudio.pause(); currentAudio=null; }
+  if(currentPlayId){
+    const item = document.querySelector(`.rec-item[data-id="${currentPlayId}"]`);
+    if(item){ item.classList.remove('active'); item.querySelector('.play-btn').classList.remove('active'); item.querySelector('.play-btn').textContent='▶'; }
+    currentPlayId=null;
+  }
+  miniCassette.style.display='none';
+  miniCassette.classList.add('paused');
+}
+function playRecording(rec){
+  if(currentPlayId===rec.id){ stopCurrentAudio(); return; }
+  stopCurrentAudio();
+  const audio = new Audio(rec.b64);
+  audio.play().catch(()=>{});
+  audio.onended=()=>{
+    stopCurrentAudio();
+  };
+  currentAudio=audio; currentPlayId=rec.id;
+  // update UI
+  const item=document.querySelector(`.rec-item[data-id="${rec.id}"]`);
+  if(item){ item.classList.add('active'); item.querySelector('.play-btn').classList.add('active'); item.querySelector('.play-btn').textContent='■'; }
+  miniCassette.style.display='flex';
+  miniCassette.classList.remove('paused');
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderRecList(){
+  // clear
+  recList.innerHTML='';
+  if(recordings.length===0){ recList.appendChild(emptyNote); emptyNote.style.display='block'; return; }
+  emptyNote.style.display='none';
+  recordings.forEach((rec,idx)=>{
+    const item=document.createElement('div');
+    item.className='rec-item';
+    item.dataset.id=rec.id;
+    item.style.animationDelay=idx*0.07+'s';
+    item.innerHTML=`
+      <button class="play-btn${currentPlayId===rec.id?' active':''}">${currentPlayId===rec.id?'■':'▶'}</button>
+      <div class="rec-info">
+        <input class="rec-name" value="${escHtml(rec.name)}" title="اضغط لإعادة التسمية"/>
+        <div class="rec-meta">${formatDate(rec.ts)}${rec.duration>0?' · '+fmtTime(rec.duration):''}</div>
+      </div>
+      <button class="del-btn" title="حذف">✕</button>
+    `;
+    // play
+    item.querySelector('.play-btn').addEventListener('click',e=>{ e.stopPropagation(); playRecording(rec); });
+    item.addEventListener('click',()=>playRecording(rec));
+    // rename
+    const nameInput=item.querySelector('.rec-name');
+    nameInput.addEventListener('click',e=>e.stopPropagation());
+    nameInput.addEventListener('change',e=>{
+      rec.name=e.target.value||rec.name; saveRecordings();
+    });
+    // delete
+    item.querySelector('.del-btn').addEventListener('click',e=>{
+      e.stopPropagation();
+      if(currentPlayId===rec.id) stopCurrentAudio();
+      recordings=recordings.filter(r=>r.id!==rec.id);
+      saveRecordings(); updateCount(); renderRecList();
+    });
+    if(currentPlayId===rec.id) item.classList.add('active');
+    recList.appendChild(item);
+  });
+}
+function updateCount(){
+  recCount.textContent=recordings.length+' تسجيل محفوظ';
+}
+function fmtTime(s){
+  return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+function formatDate(ts){
+  const d=new Date(ts);
+  return d.toLocaleDateString('ar-EG',{year:'numeric',month:'short',day:'numeric'})+' '+d.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'});
+}
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadRecordings(); updateCount();
+</script>
+</body>
+</html>
